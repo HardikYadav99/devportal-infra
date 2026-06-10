@@ -65,3 +65,39 @@ Today, while writing VPC file, the availablity zone error came because it was no
 
 ### Issues faced
 Some syntax issues, nothing special
+
+
+## Day 4 — GitHub Actions CI/CD + ECR
+
+### What I built
+- Created ECR repository with lifecycle policy (keep last 5 images)
+- Created dedicated IAM user for GitHub Actions with ECR push permissions
+- Written GitHub Actions workflow that builds Docker image on every
+  push to sample-app folder
+- Full GitOps loop working: code push → image build → ECR push →
+  values.yaml updated → ArgoCD syncs → new pod running
+
+### What I learned
+- GitHub Actions GITHUB_TOKEN is automatic, no manual creation needed
+  but needs Read/Write permission enabled in repo settings
+- k3s does not have AWS credentials by default, needs explicit
+  ECR pull secret to pull private images
+- ECR pull secret needs to be recreated periodically because
+  ECR tokens expire every 12 hours — we will automate this later
+- containerPort in deployment must match the port the app actually
+  listens on — mismatch causes connection refused
+- Kubernetes resource names come from ArgoCD Application manifest
+  not from package.json or app code
+
+### Errors fixed today
+- ECR lifecycle policy JSON syntax error — = instead of : in JSON
+- GitHub Actions 403 — needed Read/Write workflow permissions enabled
+- node:18/alpine became node:18-alpine — file creation corrupted hyphen
+- ImagePullBackOff — k3s had no ECR credentials, fixed with docker-registry secret
+- Container port mismatch — app listens on 3000, deployment said 80
+
+### Important lesson — port-forward caching
+After ArgoCD deploys a new pod, always kill the existing port-forward
+and restart it. The old port-forward stays connected to the old pod
+session and shows cached content even after new pod is running.
+Always Ctrl+C the port-forward and rerun it after a new deployment.
