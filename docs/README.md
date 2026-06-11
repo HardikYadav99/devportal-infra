@@ -101,3 +101,80 @@ After ArgoCD deploys a new pod, always kill the existing port-forward
 and restart it. The old port-forward stays connected to the old pod
 session and shows cached content even after new pod is running.
 Always Ctrl+C the port-forward and rerun it after a new deployment.
+
+
+## Day 5 — NGINX Ingress + cert-manager + HTTPS
+
+### What I built
+- Installed NGINX Ingress Controller via Helm on k3s
+- Used NodePort + hostNetwork because k3s has no cloud load balancer
+- Created DuckDNS subdomain pointing to EC2 Elastic IP
+- Added Ingress resource to Helm chart via values.yaml
+- Installed cert-manager and configured Let's Encrypt ClusterIssuer
+- App is now live on HTTPS with auto-renewing certificate
+
+### What I learned
+- NGINX Ingress on k3s needs NodePort because there is no AWS
+  load balancer — hostNetwork binds directly to EC2 network interface
+- Always test with Let's Encrypt staging first — production has
+  rate limits of 5 certificates per domain per week
+- ClusterIssuer is cluster-wide, Issuer is namespace-scoped —
+  always use ClusterIssuer for simplicity
+- cert-manager uses HTTP01 challenge — it temporarily creates a
+  pod that Let's Encrypt contacts to verify domain ownership
+- Deleting a certificate resource forces cert-manager to reissue it
+
+### Issues faced
+## SSL Certificate Issue & Fix
+
+### Problem
+
+After switching from Let's Encrypt staging to production issuer, the website still showed:
+
+* “Not Secure”
+* staging certificate warning
+
+`kubectl describe certificate nginx-test-tls` showed:
+
+```text id="4p0t5d"
+order is in "invalid" state
+DNS problem: SERVFAIL looking up A record
+```
+
+### Root Cause
+
+Let's Encrypt failed to validate the domain because of temporary DNS resolution/propagation issues with DuckDNS.
+
+### Debugging Steps
+
+```bash id="g1l7xe"
+kubectl describe certificate nginx-test-tls
+kubectl get challenges,orders -A
+kubectl describe challenge <challenge-name>
+nslookup hardikdevportal.duckdns.org
+```
+
+### Fix
+
+Deleted failed ACME resources:
+
+```bash id="9k5xq2"
+kubectl delete challenge --all -A
+kubectl delete order --all -A
+```
+
+cert-manager retried automatically and generated a valid production certificate.
+
+### Verification
+
+```bash id="9n6ysh"
+kubectl get certificate
+```
+
+Output:
+
+```text id="m7v2la"
+READY=True
+```
+
+HTTPS worked correctly after clearing Chrome SSL cache / testing in Incognito mode.
