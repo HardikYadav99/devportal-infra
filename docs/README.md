@@ -178,3 +178,68 @@ READY=True
 ```
 
 HTTPS worked correctly after clearing Chrome SSL cache / testing in Incognito mode.
+
+
+
+## Day 6 — SSM Parameter Store + External Secrets + ECR automation
+
+### What I built
+- Stored secrets in AWS SSM Parameter Store as SecureString
+- Created dedicated IAM user with minimum permissions for
+  External Secrets Operator
+- Installed External Secrets Operator via Helm
+- Created ClusterSecretStore connecting to AWS SSM
+- Created ExternalSecret that syncs SSM parameters to
+  Kubernetes secrets automatically every 1 hour
+- Built CronJob that refreshes ECR pull secret every 6 hours
+  so pods never fail with ImagePullBackOff after token expiry
+- Added liveness and readiness probes to deployment
+
+### What I learned
+- SSM SecureString encrypts values at rest using KMS
+- ExternalSecret refreshInterval controls how often it syncs
+  from AWS — 1h means secrets rotate within 1 hour of SSM update
+- ClusterSecretStore is cluster-wide, SecretStore is namespace-scoped
+- Liveness probe — if this fails Kubernetes restarts the pod
+- Readiness probe — if this fails Kubernetes stops sending
+  traffic to the pod but does not restart it
+- ECR tokens expire every 12 hours — automating refresh is
+  essential for production reliability
+- Never store secrets in Git — SSM + External Secrets is the
+  correct production pattern
+
+### Issues faced
+You can keep it like this in your README:
+
+### Issue: AWS CLI image missing kubectl
+
+While running the ECR token refresh CronJob, the container had AWS CLI installed but `kubectl` was missing, causing Kubernetes secret creation to fail.
+
+### Initial Fix
+
+Installed `kubectl` manually inside the container:
+
+```bash id="cmd7f2"
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl
+mv kubectl /usr/local/bin/kubectl
+```
+
+### Better Solution
+
+Switched to:
+
+```text id="txt8k1"
+heyvaldemar/aws-kubectl
+```
+
+Docker image because it already includes:
+
+* AWS CLI
+* kubectl
+
+Result:
+
+* cleaner CronJob
+* simpler maintenance
+* no manual kubectl installation required
