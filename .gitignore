@@ -55,4 +55,5 @@ terraform.rc
 *.pem
 *.key
 .env
-.env.local
+.env.localk8s-bootstrap/github-actions-kubeconfig.yaml
+k8s-bootstrap/github-actions-kubeconfig.yaml
