@@ -10,7 +10,7 @@ rules:
     resources: ["deployments", "replicasets"]
     verbs: ["get", "list", "delete"]
   - apiGroups: [""]
-    resources: ["pods", "services"]
+    resources: ["pods", "services", "secrets"]
     verbs: ["get", "list", "delete"]
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
